@@ -1,0 +1,10 @@
+OpenAI
+python-dotenv
+pipwin
+pyaudio
+pydub
+speechrecognition
+gtts
+gradio
+
+pip instal PyAudio-0.2.11-cp311-cp311-win_amd64.whl

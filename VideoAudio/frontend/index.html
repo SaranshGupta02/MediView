@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎥 Virtual Interview</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #ffffff;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+    
+    h2 {
+      margin-top: 20px;
+      font-size: 28px;
+      color: #705dcd;
+    }
+
+    .container {
+      display: flex;
+      gap: 40px;
+      margin-top: 30px;
+      padding: 20px;
+      width: 90%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .video-box, .image-box {
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.06);
+    }
+
+    .video-box {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .image-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 280px;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 10px;
+      border: 2px solid #705dcd;
+      margin-bottom: 15px;
+    }
+
+    button, input[type="file"] {
+      padding: 10px 15px;
+      font-size: 15px;
+      border-radius: 6px;
+      border: none;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    #toggleBtn, #uploadBtn {
+      background-color: #705dcd;
+      color: white;
+    }
+
+    #toggleBtn:hover, #uploadBtn:hover {
+      background-color: #5a49b2;
+    }
+
+    .uploaded-images {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    .uploaded-images img {
+      width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .video-box, .image-box {
+        width: 100%;
+      }
+    }
+  </style>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <button id="logoutBtn" style="
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: #5a49b2;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+">
+  🚪 Logout
+</button>
+
+  <h2>🎙️ Virtual Interview</h2>
+
+  <div class="container">
+    <div class="video-box" id="videoBox">
+      <video id="video" autoplay muted playsinline></video>
+      <button id="toggleBtn">▶️ Start Interview</button>
+    </div>
+
+    <div class="image-box" id="imageBox">
+      <input type="file" id="imageInput" accept="image/*">
+      <button id="uploadBtn">📤 Upload Image</button>
+      <div class="uploaded-images" id="uploadedImages">
+        <p style="font-style: italic; color: #888;">Upload image to preview here...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("logoutBtn").onclick = async () => {
+  try {
+    const res = await fetch("/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (res.ok) {
+      alert("Logged out successfully.");
+      // Optional: Redirect to login or homepage
+      window.close();
+
+    } else {
+      alert("Logout failed.");
+    }
+  } catch (err) {
+    console.error("Logout error:", err);
+    alert("An error occurred while logging out.");
+  }
+};
+
+    const video = document.getElementById("video");
+    const toggleBtn = document.getElementById("toggleBtn");
+    const imageInput = document.getElementById("imageInput");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const uploadedImages = document.getElementById("uploadedImages");
+    const socket = io();
+
+    let mediaStream;
+    let mediaRecorder;
+    let recordedChunks = [];
+    let isInterviewRunning = false;
+    let frameInterval;
+
+    toggleBtn.onclick = async () => {
+  if (!isInterviewRunning) {
+    await startInterview();
+    toggleBtn.textContent = "⏹️ Stop Interview";
+    isInterviewRunning = true;
+  } else {
+    stopInterview();
+    // Now handled inside stopInterview after everything finishes
+  }
+};
+
+    async function startInterview() {
+      
+    const uploadedImages = document.getElementById("uploadedImages");
+       uploadedImages.innerHTML = `
+    <p style="font-style: italic; color: #888;">Upload image to preview here...</p>
+  `;
+      try {
+        await fetch('/start_frames', { method: 'POST' });
+
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        video.srcObject = mediaStream;
+
+        mediaRecorder = new MediaRecorder(mediaStream);
+        recordedChunks = [];
+
+        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+        mediaRecorder.start();
+
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        await new Promise((resolve) => {
+          video.onloadedmetadata = () => {
+            video.play();
+            resolve();
+          };
+        });
+
+        frameInterval = setInterval(() => {
+          if (!isInterviewRunning) {
+            clearInterval(frameInterval);
+            return;
+          }
+
+          const videoWidth = video.videoWidth;
+          const videoHeight = video.videoHeight;
+          if (videoWidth === 0 || videoHeight === 0) return;
+
+          canvas.width = videoWidth;
+          canvas.height = videoHeight;
+          context.drawImage(video, 0, 0, videoWidth, videoHeight);
+          const imageData = canvas.toDataURL("image/jpeg", 0.7);
+          socket.emit("video_frame", { image: imageData });
+        }, 500);
+
+      } catch (err) {
+        console.error("Camera/Microphone access denied", err);
+      }
+    }
+
+  async function stopInterview() {
+  clearInterval(frameInterval);
+  
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob);
+
+      await fetch('/upload_audio', { method: 'POST', body: formData });
+      await fetch('/interview_stopped', { method: 'POST' });
+
+      // Reset UI state only after everything is done
+      isInterviewRunning = false;
+      toggleBtn.textContent = "▶️ Start Interview";
+
+      fetchAndPlayProcessedAudio();
+    };
+
+    mediaRecorder.stop();
+  }
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+  }
+}
+
+async function fetchAndPlayProcessedAudio() {
+  try {
+    const res = await fetch('/get_output_audio');
+    if (!res.ok) throw new Error("Audio fetch failed");
+
+    const audioBlob = await res.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+
+    uploadedImages.innerHTML = "";
+
+    const audio = new Audio(audioUrl);
+    audio.controls = true;
+    uploadedImages.appendChild(audio);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.min(window.innerWidth * 0.9, 500);
+    canvas.height = 150;
+    canvas.style.marginTop = "20px";
+    uploadedImages.appendChild(canvas);
+
+    const ctx = canvas.getContext("2d");
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = audioCtx.createAnalyser();
+    const source = audioCtx.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    analyser.fftSize = 512; // Good balance between detail and smoothness
+    const bufferLength = analyser.fftSize;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const amplitude = 2.5;
+    const frameRate = 30; // Limit drawing to 30 FPS
+    let intervalId = null;
+
+    function draw() {
+      analyser.getByteTimeDomainData(dataArray);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#705dcd";
+      ctx.beginPath();
+
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v - 1.0) * (canvas.height / 2) * amplitude + (canvas.height / 2);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+
+      ctx.stroke();
+    }
+
+    audio.onplay = () => {
+      audioCtx.resume();
+      intervalId = setInterval(draw, 1000 / frameRate);
+       const pdfButton = document.createElement("button");
+        pdfButton.textContent = "📄 Download Doctor Report";
+        pdfButton.style.backgroundColor = "#705dcd";
+        pdfButton.style.color = "white";
+        pdfButton.style.marginTop = "15px";
+        pdfButton.style.border = "none";
+        pdfButton.style.borderRadius = "6px";
+        pdfButton.style.padding = "10px 15px";
+        pdfButton.style.cursor = "pointer";
+
+        pdfButton.onclick = async () => {
+          try {
+            const res = await fetch("/get_pdf");
+            const data = await res.json();
+
+            if (data.pdf_url) {
+              const a = document.createElement("a");
+              a.href = data.pdf_url;
+              a.download = "Doctor_Report.pdf";
+              a.click();
+            } else {
+              alert("Doctor response not available yet.");
+            }
+          } catch (err) {
+            alert("Failed to generate PDF.");
+            console.error(err);
+          }
+        };
+
+        uploadedImages.appendChild(pdfButton);
+      };
+
+    audio.onpause = audio.onended = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    audio.play();
+  } catch (err) {
+    console.error("Error fetching/playing audio:", err);
+    alert("Failed to fetch processed audio.");
+  }
+}
+
+
+    uploadBtn.onclick = async () => {
+      const file = imageInput.files[0];
+      if (!file) return alert("Select an image first.");
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch('/upload_image', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      uploadedImages.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = data.url;
+      uploadedImages.appendChild(img);
+    };
+  </script>
+</body>
+</html>
