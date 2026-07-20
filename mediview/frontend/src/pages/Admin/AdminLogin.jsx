@@ -1,7 +1,7 @@
 import axios from 'axios'
 import React, { useContext, useState } from 'react'
-import { DoctorContext } from '../context/DoctorContext'
-import { AdminContext } from '../context/AdminContext'
+import { DoctorContext } from '../../context/DoctorContext'
+import { AdminContext } from '../../context/AdminContext'
 import { toast } from 'react-toastify'
 
 const Login = () => {

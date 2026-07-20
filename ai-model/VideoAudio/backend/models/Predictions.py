@@ -5,15 +5,43 @@ from PIL import Image
 import io
 import joblib
 from keras.models import load_model
-model_tumor = load_model('brain_tumor.keras')
-model_eye=load_model('eye.keras')
-pipeline = joblib.load('xgb_pipeline_kidney.pkl')
-model_heart = joblib.load('heart_disease_model.sav')
-model_diabetes=joblib.load('diabetes_model.sav')
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from xgboost import XGBClassifier
+import os
+
+model_tumor, model_eye, pipeline, model_heart, model_diabetes = None, None, None, None, None
+
+try:
+    if os.path.exists('models/brain_tumor.h5'):
+        model_tumor = load_model('models/brain_tumor.h5')
+except Exception as e:
+    print("Warning: Failed to load brain_tumor.h5 -", e)
+
+try:
+    if os.path.exists('models/eye.keras'):
+        model_eye = load_model('models/eye.keras')
+except Exception as e:
+    print("Warning: Failed to load eye.keras -", e)
+
+try:
+    if os.path.exists('models/xgb_pipeline_kidney.pkl'):
+        pipeline = joblib.load('models/xgb_pipeline_kidney.pkl')
+except Exception as e:
+    print("Warning: Failed to load xgb_pipeline_kidney.pkl -", e)
+
+try:
+    if os.path.exists('models/heart_disease_model.sav'):
+        model_heart = joblib.load('models/heart_disease_model.sav')
+except Exception as e:
+    print("Warning: Failed to load heart_disease_model.sav -", e)
+
+try:
+    if os.path.exists('models/diabetes_model.sav'):
+        model_diabetes = joblib.load('models/diabetes_model.sav')
+except Exception as e:
+    print("Warning: Failed to load diabetes_model.sav -", e)
 
 class_labels = ['pituitary', 'glioma', 'notumor', 'meningioma']
 

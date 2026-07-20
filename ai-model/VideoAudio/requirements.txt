@@ -1,5 +1,37 @@
+# ── Web server ─────────────────────────────────────────────────────────────
 flask
 flask_socketio
+flask-cors
+
+# ── ML / Data ──────────────────────────────────────────────────────────────
 joblib
 scikit-learn
-fpdf
+xgboost
+numpy
+pandas
+pillow
+opencv-python
+
+# ── PDF ────────────────────────────────────────────────────────────────────
+fpdf2
+
+# ── Requests / Env ─────────────────────────────────────────────────────────
+requests
+python-dotenv
+
+# ── Brain AI (OpenAI + LangChain) ──────────────────────────────────────────
+openai
+langchain
+langchain-community
+langchain-core
+langchain-openai
+
+# ── Audio processing ───────────────────────────────────────────────────────
+pydub
+SpeechRecognition
+gTTS
+
+# ── TensorFlow + Keras ─────────────────────────────────────────────────────
+# REQUIRES Python 3.10 / 3.11 / 3.12  (NOT 3.13 or 3.14)
+# Make sure you activated the venv created with py -3.12 before running pip install
+tensorflow==2.18.0

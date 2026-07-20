@@ -2,396 +2,782 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>🎥 Virtual Interview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediView — AI Doctor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-    * { box-sizing: border-box; }
+    :root {
+      --primary: #6c63ff;
+      --primary-dark: #5a52d5;
+      --primary-glow: rgba(108, 99, 255, 0.3);
+      --bg: #0d0d1a;
+      --surface: #13131f;
+      --surface2: #1a1a2e;
+      --border: rgba(108, 99, 255, 0.2);
+      --text: #e8e8f0;
+      --text-muted: #8888aa;
+      --success: #00d4aa;
+      --danger: #ff5c8d;
+      --warn: #ffb547;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #ffffff;
-      color: #333;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
-      overflow-y: auto;
-    }
-    
-    h2 {
-      margin-top: 20px;
-      font-size: 28px;
-      color: #705dcd;
+      display: flex;
+      flex-direction: column;
     }
 
-    .container {
+    /* ─── Header ─────────────────────────────────────── */
+    header {
       display: flex;
-      gap: 40px;
-      margin-top: 30px;
-      padding: 20px;
-      width: 90%;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 40px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 20px;
+      color: var(--text);
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--primary), #a855f7);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
       justify-content: center;
-      flex-wrap: wrap;
+      font-size: 18px;
     }
 
-    .video-box, .image-box {
-      background-color: #f9f9f9;
-      border: 1px solid #ddd;
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.06);
+    .badge {
+      background: linear-gradient(90deg, var(--primary), #a855f7);
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
     }
 
-    .video-box {
-      flex: 2;
+    .btn-logout {
+      background: rgba(255, 92, 141, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(255, 92, 141, 0.3);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-logout:hover {
+      background: rgba(255, 92, 141, 0.25);
+    }
+
+    /* ─── Status bar ─────────────────────────────────── */
+    .status-bar {
+      padding: 10px 40px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
       display: flex;
-      flex-direction: column;
       align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-muted);
     }
 
-    .image-box {
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .status-dot.live { background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 2s infinite; }
+    .status-dot.recording { background: var(--danger); box-shadow: 0 0 8px var(--danger); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ─── Main layout ────────────────────────────────── */
+    main {
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-width: 280px;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      grid-template-rows: auto auto;
+      gap: 20px;
+      padding: 24px 40px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--primary), #a855f7);
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    /* ─── Video box ──────────────────────────────────── */
+    .video-card {
+      grid-row: 1 / 2;
+    }
+
+    .video-wrapper {
+      position: relative;
+      background: #0a0a12;
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      border: 1px solid var(--border);
     }
 
     video {
       width: 100%;
-      border-radius: 10px;
-      border: 2px solid #705dcd;
-      margin-bottom: 15px;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
-    button, input[type="file"] {
-      padding: 10px 15px;
-      font-size: 15px;
-      border-radius: 6px;
+    .video-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: rgba(13,13,26,0.85);
+      transition: opacity 0.3s;
+    }
+
+    .video-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    .video-overlay-icon { font-size: 40px; }
+    .video-overlay-text { color: var(--text-muted); font-size: 14px; }
+
+    .video-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    /* ─── Buttons ────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
       border: none;
-      margin-top: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #a855f7);
+      color: white;
+      box-shadow: 0 4px 20px var(--primary-glow);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px var(--primary-glow); }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-danger {
+      background: rgba(255, 92, 141, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(255, 92, 141, 0.3);
+    }
+    .btn-danger:hover { background: rgba(255, 92, 141, 0.25); }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
+    .btn-success {
+      background: rgba(0, 212, 170, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(0, 212, 170, 0.3);
+    }
+    .btn-success:hover { background: rgba(0, 212, 170, 0.25); }
+
+    /* ─── Image upload card ──────────────────────────── */
+    .image-card {
+      grid-row: 1 / 2;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      background: rgba(108, 99, 255, 0.03);
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary);
+      background: rgba(108, 99, 255, 0.07);
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
       cursor: pointer;
     }
 
-    #toggleBtn, #uploadBtn {
-      background-color: #705dcd;
-      color: white;
+    .upload-icon { font-size: 32px; margin-bottom: 8px; }
+    .upload-hint { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+    .preview-container {
+      flex: 1;
+      background: #0a0a12;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 160px;
+      overflow: hidden;
+      position: relative;
     }
 
-    #toggleBtn:hover, #uploadBtn:hover {
-      background-color: #5a49b2;
+    .preview-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
     }
 
-    .uploaded-images {
+    .preview-placeholder {
+      color: var(--text-muted);
+      font-size: 13px;
       display: flex;
       flex-direction: column;
-      gap: 15px;
-      width: 100%;
-      margin-top: 20px;
+      align-items: center;
+      gap: 8px;
     }
 
-    .uploaded-images img {
-      width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      border-radius: 8px;
-      border: 1px solid #ccc;
+    /* ─── Response area ──────────────────────────────── */
+    .response-card {
+      grid-column: 1 / 3;
     }
 
-    @media (max-width: 768px) {
-      .container {
-        flex-direction: column;
-        align-items: center;
-      }
+    .response-inner {
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
 
-      .video-box, .image-box {
-        width: 100%;
+    .response-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+      gap: 10px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .waveform-canvas {
+      width: 100%;
+      height: 80px;
+      border-radius: 10px;
+      background: #0a0a12;
+      border: 1px solid var(--border);
+    }
+
+    audio {
+      width: 100%;
+      accent-color: var(--primary);
+    }
+
+    /* Custom audio player styling */
+    audio::-webkit-media-controls-panel { background: var(--surface2); }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Timer ──────────────────────────────────────── */
+    .timer {
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+      font-weight: 500;
+      min-width: 50px;
+    }
+
+    /* ─── Notification toast ─────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 999;
+      max-width: 360px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 16px;
       }
+      .response-card { grid-column: 1; }
+      header { padding: 14px 20px; }
+      .status-bar { padding: 10px 20px; }
     }
   </style>
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-  <button id="logoutBtn" style="
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background-color: #5a49b2;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-">
-  🚪 Logout
-</button>
 
-  <h2>🎙️ Virtual Interview</h2>
+<!-- ─── Header ─────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🧬</div>
+    MediView
+    <span class="badge">AI DOCTOR</span>
+  </div>
+  <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+</header>
 
-  <div class="container">
-    <div class="video-box" id="videoBox">
+<!-- ─── Status bar ─────────────────────────── -->
+<div class="status-bar">
+  <div class="status-dot" id="statusDot"></div>
+  <span id="statusText">Ready — click Start Interview to begin your consultation</span>
+  <span class="timer" id="timerDisplay"></span>
+</div>
+
+<!-- ─── Main ───────────────────────────────── -->
+<main>
+
+  <!-- Video card -->
+  <div class="card video-card">
+    <div class="card-label">📹 Live Feed — Emotion Detection</div>
+    <div class="video-wrapper">
       <video id="video" autoplay muted playsinline></video>
-      <button id="toggleBtn">▶️ Start Interview</button>
+      <div class="video-overlay" id="videoOverlay">
+        <div class="video-overlay-icon">🎙️</div>
+        <div class="video-overlay-text">Camera will activate when interview starts</div>
+      </div>
+    </div>
+    <div class="video-controls">
+      <button class="btn btn-primary" id="toggleBtn">▶ Start Interview</button>
+      <span style="font-size:13px;color:var(--text-muted);">
+        Speak naturally — the AI Doctor is listening
+      </span>
+    </div>
+  </div>
+
+  <!-- Image upload card -->
+  <div class="card image-card">
+    <div class="card-label">🩻 Medical Image Upload</div>
+
+    <div class="upload-zone" id="dropZone">
+      <input type="file" id="imageInput" accept="image/*">
+      <div class="upload-icon">📂</div>
+      <div style="font-weight:600;font-size:14px;">Drop or click to upload</div>
+      <div class="upload-hint">X-Ray, MRI, skin photo, etc.</div>
     </div>
 
-    <div class="image-box" id="imageBox">
-      <input type="file" id="imageInput" accept="image/*">
-      <button id="uploadBtn">📤 Upload Image</button>
-      <div class="uploaded-images" id="uploadedImages">
-        <p style="font-style: italic; color: #888;">Upload image to preview here...</p>
+    <button class="btn btn-primary" id="uploadBtn" style="width:100%">
+      📤 Upload & Analyse Image
+    </button>
+
+    <div class="preview-container" id="previewContainer">
+      <div class="preview-placeholder" id="previewPlaceholder">
+        <span style="font-size:28px">🖼️</span>
+        <span>Preview will appear here</span>
       </div>
     </div>
   </div>
 
-  <script>
-    document.getElementById("logoutBtn").onclick = async () => {
+  <!-- Response card -->
+  <div class="card response-card">
+    <div class="card-label">🩺 Doctor Response</div>
+    <div class="response-inner" id="responseInner">
+      <div class="response-placeholder" id="responsePlaceholder">
+        <span style="font-size:32px;">🎧</span>
+        <span>The doctor's audio response will appear here after your interview</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ─── Toast notification ─────────────────── -->
+<div class="toast" id="toast">
+  <span id="toastIcon">ℹ️</span>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+  /* ─── Helpers ─────────────────────────────────── */
+  function showToast(msg, icon = 'ℹ️', duration = 3500) {
+    const t = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    document.getElementById('toastIcon').textContent = icon;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  // Catch unhandled errors and show them in a toast
+  window.onerror = function(msg, url, line) {
+    showToast(`Error: ${msg}`, '❌', 6000);
+    return false;
+  };
+
+  function setStatus(text, mode = 'idle') {
+    document.getElementById('statusText').textContent = text;
+    const dot = document.getElementById('statusDot');
+    dot.className = 'status-dot' + (mode === 'live' ? ' live' : mode === 'recording' ? ' recording' : '');
+  }
+
+  /* ─── Timer ───────────────────────────────────── */
+  let timerInterval, timerSeconds = 0;
+  function startTimer() {
+    timerSeconds = 0;
+    timerInterval = setInterval(() => {
+      timerSeconds++;
+      const m = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+      const s = String(timerSeconds % 60).padStart(2, '0');
+      document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+    }, 1000);
+  }
+  function stopTimer() {
+    clearInterval(timerInterval);
+    document.getElementById('timerDisplay').textContent = '';
+  }
+
+  /* ─── Socket & state ──────────────────────────── */
+  let socket = null;
   try {
-    const res = await fetch("/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-
-    if (res.ok) {
-      alert("Logged out successfully.");
-      // Optional: Redirect to login or homepage
-      window.close();
-
-    } else {
-      alert("Logout failed.");
-    }
+    socket = io();
   } catch (err) {
-    console.error("Logout error:", err);
-    alert("An error occurred while logging out.");
+    console.error("Socket.IO failed to load:", err);
+    showToast("Socket.IO failed to load. Check your internet connection.", "❌");
   }
-};
 
-    const video = document.getElementById("video");
-    const toggleBtn = document.getElementById("toggleBtn");
-    const imageInput = document.getElementById("imageInput");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const uploadedImages = document.getElementById("uploadedImages");
-    const socket = io();
+  let mediaStream, mediaRecorder, recordedChunks = [], isRunning = false, frameInterval;
 
-    let mediaStream;
-    let mediaRecorder;
-    let recordedChunks = [];
-    let isInterviewRunning = false;
-    let frameInterval;
+  const video = document.getElementById('video');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const videoOverlay = document.getElementById('videoOverlay');
 
-    toggleBtn.onclick = async () => {
-  if (!isInterviewRunning) {
-    await startInterview();
-    toggleBtn.textContent = "⏹️ Stop Interview";
-    isInterviewRunning = true;
-  } else {
-    stopInterview();
-    // Now handled inside stopInterview after everything finishes
-  }
-};
+  /* ─── Interview toggle ────────────────────────── */
+  toggleBtn.onclick = async () => {
+    if (!isRunning) {
+      await startInterview();
+    } else {
+      await stopInterview();
+    }
+  };
 
-    async function startInterview() {
-      
-    const uploadedImages = document.getElementById("uploadedImages");
-       uploadedImages.innerHTML = `
-    <p style="font-style: italic; color: #888;">Upload image to preview here...</p>
-  `;
-      try {
-        await fetch('/start_frames', { method: 'POST' });
+  async function startInterview() {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Your browser blocks camera access on this URL. Please use http://localhost:5000 or enable HTTPS.");
+      }
 
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        video.srcObject = mediaStream;
+      showToast('Requesting camera access...', '⏳');
+      await fetch('/start_frames', { method: 'POST', credentials: 'include' });
+      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      video.srcObject = mediaStream;
+      videoOverlay.classList.add('hidden');
 
-        mediaRecorder = new MediaRecorder(mediaStream);
-        recordedChunks = [];
+      mediaRecorder = new MediaRecorder(mediaStream);
+      recordedChunks = [];
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.start();
 
-        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-        mediaRecorder.start();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
 
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d");
+      await new Promise(res => { video.onloadedmetadata = () => { video.play(); res(); }; });
 
-        await new Promise((resolve) => {
-          video.onloadedmetadata = () => {
-            video.play();
-            resolve();
-          };
-        });
+      frameInterval = setInterval(() => {
+        if (!isRunning || !socket) return;
+        if (!video.videoWidth || !video.videoHeight) return;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        socket.emit('video_frame', { image: canvas.toDataURL('image/jpeg', 0.6) });
+      }, 500);
 
-        frameInterval = setInterval(() => {
-          if (!isInterviewRunning) {
-            clearInterval(frameInterval);
-            return;
-          }
+      isRunning = true;
+      toggleBtn.innerHTML = '⏹ Stop Interview';
+      toggleBtn.className = 'btn btn-danger';
+      setStatus('Interview running — speak to the AI Doctor', 'recording');
+      startTimer();
+      showToast('Interview started! Speak naturally.', '🎙️');
 
-          const videoWidth = video.videoWidth;
-          const videoHeight = video.videoHeight;
-          if (videoWidth === 0 || videoHeight === 0) return;
-
-          canvas.width = videoWidth;
-          canvas.height = videoHeight;
-          context.drawImage(video, 0, 0, videoWidth, videoHeight);
-          const imageData = canvas.toDataURL("image/jpeg", 0.7);
-          socket.emit("video_frame", { image: imageData });
-        }, 500);
-
-      } catch (err) {
-        console.error("Camera/Microphone access denied", err);
+    } catch (err) {
+      console.error(err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        showToast('Camera/microphone permission denied. Please allow access in your browser.', '⚠️', 6000);
+        setStatus('Camera permission denied — check browser settings', 'idle');
+      } else {
+        showToast('Could not start camera: ' + err.message, '❌', 7000);
       }
     }
+  }
 
   async function stopInterview() {
-  clearInterval(frameInterval);
-  
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-      const formData = new FormData();
-      formData.append('audio', blob);
+    clearInterval(frameInterval);
+    stopTimer();
+    setStatus('Processing your consultation…', 'live');
 
-      await fetch('/upload_audio', { method: 'POST', body: formData });
-      await fetch('/interview_stopped', { method: 'POST' });
+    const responseInner = document.getElementById('responseInner');
+    const responsePlaceholder = document.getElementById('responsePlaceholder');
+    responsePlaceholder.innerHTML = '<div class="spinner"></div><span style="color:var(--text-muted);font-size:14px;">AI Doctor is analysing your session…</span>';
 
-      // Reset UI state only after everything is done
-      isInterviewRunning = false;
-      toggleBtn.textContent = "▶️ Start Interview";
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const fd = new FormData();
+        fd.append('audio', blob);
+        await fetch('/upload_audio', { method: 'POST', body: fd, credentials: 'include' });
+        await fetch('/interview_stopped', { method: 'POST', credentials: 'include' });
 
-      fetchAndPlayProcessedAudio();
-    };
+        isRunning = false;
+        toggleBtn.innerHTML = '▶ Start Interview';
+        toggleBtn.className = 'btn btn-primary';
+        videoOverlay.classList.remove('hidden');
+        setStatus('Processing complete — playing response', 'live');
+        showToast('Consultation complete! Loading doctor response…', '✅');
+        await playDoctorResponse();
+      };
+      mediaRecorder.stop();
+    }
 
-    mediaRecorder.stop();
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
   }
 
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(track => track.stop());
+  /* ─── Doctor audio response ───────────────────── */
+  async function playDoctorResponse() {
+    const responseInner = document.getElementById('responseInner');
+    try {
+      const res = await fetch('/get_output_audio', { credentials: 'include' });
+      if (!res.ok) throw new Error('Audio not ready');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      responseInner.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <p style="color:var(--text-muted);font-size:13px;">🎧 Doctor's audio response — press play to listen</p>
+          <audio id="doctorAudio" controls src="${url}"></audio>
+          <canvas id="waveCanvas" class="waveform-canvas"></canvas>
+          <div id="pdfActions" style="display:flex;gap:10px;margin-top:4px;"></div>
+        </div>
+      `;
+
+      setupWaveform(document.getElementById('doctorAudio'), document.getElementById('waveCanvas'));
+      setupPDFButton(document.getElementById('pdfActions'));
+      setStatus('Doctor response ready', 'live');
+
+    } catch (err) {
+      responseInner.innerHTML = `<div class="response-placeholder"><span style="font-size:28px">⚠️</span><span style="color:var(--text-muted)">Could not load audio response. Check the AI server logs.</span></div>`;
+      setStatus('Could not load response', 'idle');
+    }
   }
-}
 
-async function fetchAndPlayProcessedAudio() {
-  try {
-    const res = await fetch('/get_output_audio');
-    if (!res.ok) throw new Error("Audio fetch failed");
-
-    const audioBlob = await res.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
-
-    uploadedImages.innerHTML = "";
-
-    const audio = new Audio(audioUrl);
-    audio.controls = true;
-    uploadedImages.appendChild(audio);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.min(window.innerWidth * 0.9, 500);
-    canvas.height = 150;
-    canvas.style.marginTop = "20px";
-    uploadedImages.appendChild(canvas);
-
-    const ctx = canvas.getContext("2d");
+  function setupWaveform(audio, canvas) {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = audioCtx.createAnalyser();
     const source = audioCtx.createMediaElementSource(audio);
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
-
-    analyser.fftSize = 512; // Good balance between detail and smoothness
-    const bufferLength = analyser.fftSize;
-    const dataArray = new Uint8Array(bufferLength);
-
-    const amplitude = 2.5;
-    const frameRate = 30; // Limit drawing to 30 FPS
-    let intervalId = null;
+    analyser.fftSize = 512;
+    const data = new Uint8Array(analyser.fftSize);
+    let rafId;
 
     function draw() {
-      analyser.getByteTimeDomainData(dataArray);
-
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#705dcd";
-      ctx.beginPath();
-
-      const sliceWidth = canvas.width / bufferLength;
-      let x = 0;
-
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v - 1.0) * (canvas.height / 2) * amplitude + (canvas.height / 2);
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        x += sliceWidth;
-      }
-
-      ctx.stroke();
+      rafId = requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(data);
+      const ctx2 = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth;
+      ctx2.fillStyle = '#0a0a12';
+      ctx2.fillRect(0, 0, canvas.width, canvas.height);
+      ctx2.lineWidth = 2;
+      ctx2.strokeStyle = '#6c63ff';
+      ctx2.beginPath();
+      const sw = canvas.width / data.length;
+      data.forEach((v, i) => {
+        const y = (v / 128 - 1) * (canvas.height / 2) * 2.5 + canvas.height / 2;
+        i === 0 ? ctx2.moveTo(0, y) : ctx2.lineTo(i * sw, y);
+      });
+      ctx2.stroke();
     }
-
-    audio.onplay = () => {
-      audioCtx.resume();
-      intervalId = setInterval(draw, 1000 / frameRate);
-       const pdfButton = document.createElement("button");
-        pdfButton.textContent = "📄 Download Doctor Report";
-        pdfButton.style.backgroundColor = "#705dcd";
-        pdfButton.style.color = "white";
-        pdfButton.style.marginTop = "15px";
-        pdfButton.style.border = "none";
-        pdfButton.style.borderRadius = "6px";
-        pdfButton.style.padding = "10px 15px";
-        pdfButton.style.cursor = "pointer";
-
-        pdfButton.onclick = async () => {
-          try {
-            const res = await fetch("/get_pdf");
-            const data = await res.json();
-
-            if (data.pdf_url) {
-              const a = document.createElement("a");
-              a.href = data.pdf_url;
-              a.download = "Doctor_Report.pdf";
-              a.click();
-            } else {
-              alert("Doctor response not available yet.");
-            }
-          } catch (err) {
-            alert("Failed to generate PDF.");
-            console.error(err);
-          }
-        };
-
-        uploadedImages.appendChild(pdfButton);
-      };
-
-    audio.onpause = audio.onended = () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-    };
-
-    audio.play();
-  } catch (err) {
-    console.error("Error fetching/playing audio:", err);
-    alert("Failed to fetch processed audio.");
+    audio.onplay = () => { audioCtx.resume(); draw(); };
+    audio.onpause = audio.onended = () => cancelAnimationFrame(rafId);
   }
-}
 
+  function setupPDFButton(container) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-success';
+    btn.innerHTML = '📄 Download Doctor Report (PDF)';
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'Generating…';
+      try {
+        const res = await fetch('/get_pdf', { credentials: 'include' });
+        const data = await res.json();
+        if (data.pdf_url) {
+          const a = document.createElement('a');
+          a.href = data.pdf_url;
+          a.download = 'MediView_Doctor_Report.pdf';
+          a.click();
+          showToast('Report downloaded!', '📄');
+        } else {
+          showToast('PDF not ready yet.', '⚠️');
+        }
+      } catch {
+        showToast('Failed to generate report.', '❌');
+      }
+      btn.disabled = false;
+      btn.innerHTML = '📄 Download Doctor Report (PDF)';
+    };
+    container.appendChild(btn);
+  }
 
-    uploadBtn.onclick = async () => {
-      const file = imageInput.files[0];
-      if (!file) return alert("Select an image first.");
+  /* ─── Image upload ────────────────────────────── */
+  const uploadBtn = document.getElementById('uploadBtn');
+  const imageInput = document.getElementById('imageInput');
+  const previewContainer = document.getElementById('previewContainer');
+  const previewPlaceholder = document.getElementById('previewPlaceholder');
+  const dropZone = document.getElementById('dropZone');
 
-      const formData = new FormData();
-      formData.append('image', file);
+  // Show file name on select
+  imageInput.onchange = () => {
+    if (imageInput.files[0]) {
+      dropZone.querySelector('div:nth-child(2)').textContent = imageInput.files[0].name;
+    }
+  };
 
-      const res = await fetch('/upload_image', { method: 'POST', body: formData });
+  // Drag & drop
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    imageInput.files = e.dataTransfer.files;
+    if (imageInput.files[0]) dropZone.querySelector('div:nth-child(2)').textContent = imageInput.files[0].name;
+  });
+
+  uploadBtn.onclick = async () => {
+    const file = imageInput.files[0];
+    if (!file) { showToast('Select an image first.', '⚠️'); return; }
+
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Uploading…';
+
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await fetch('/upload_image', { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
 
-      uploadedImages.innerHTML = "";
-      const img = document.createElement("img");
-      img.src = data.url;
-      uploadedImages.appendChild(img);
-    };
-  </script>
+      // Show preview using a blob URL to avoid cookie issues
+      const reader = new FileReader();
+      reader.onload = e => {
+        previewPlaceholder.style.display = 'none';
+        // Remove old preview
+        const old = previewContainer.querySelector('img');
+        if (old) old.remove();
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        previewContainer.appendChild(img);
+      };
+      reader.readAsDataURL(file);
+
+      showToast('Image uploaded successfully! The AI Doctor will analyse it.', '✅');
+    } catch (err) {
+      showToast('Upload failed: ' + err.message, '❌');
+    }
+
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = '📤 Upload & Analyse Image';
+  };
+
+  /* ─── Logout ──────────────────────────────────── */
+  document.getElementById('logoutBtn').onclick = async () => {
+    try {
+      await fetch('/logout', { method: 'POST', credentials: 'include' });
+      window.close();
+    } catch {
+      window.close();
+    }
+  };
+</script>
 </body>
 </html>

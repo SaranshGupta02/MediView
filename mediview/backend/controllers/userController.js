@@ -12,10 +12,16 @@ import fs from 'fs';
 import path from 'path';
 import reportModel from "../models/reportModel.js";
 
-const razorpayInstance = new razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-})
+// Guard Razorpay — only initialise if real keys are provided
+const _razorpayConfigured =
+    process.env.RAZORPAY_KEY_ID &&
+    process.env.RAZORPAY_KEY_ID !== 'your_razorpay_key_id' &&
+    process.env.RAZORPAY_KEY_SECRET &&
+    process.env.RAZORPAY_KEY_SECRET !== 'your_razorpay_key_secret'
+
+const razorpayInstance = _razorpayConfigured
+    ? new razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
+    : null
 
 const registerUser = async (req, res) => {
 
@@ -247,6 +253,10 @@ const cancelAppointment = async (req, res) => {
 const paymentRazorpay = async (req, res) => {
     try {
 
+        if (!razorpayInstance) {
+            return res.json({ success: false, message: 'Payment gateway not configured. Please add Razorpay credentials to .env' })
+        }
+
         const { appointmentId } = req.body
         const appointmentData = await appointmentModel.findById(appointmentId)
 
@@ -430,4 +440,22 @@ const verifyRazorpayai = async (req, res) => {
 };
 
 
-export {registerUser,loginUser,getProfile,updateProfile,bookAppointment,listAppointment,cancelAppointment,verifyRazorpay,paymentRazorpay,addTest,getAllTestsForUser,addReport,getReports,paymentRazorpayai, verifyRazorpayai};
+// ── Bypass payment for testing ─────────────────────────────────────────────
+// Called when BYPASS_PAYMENT=true in .env  
+// Skips Razorpay entirely and directly grants AI Doctor access
+const bypassPaymentAIDoctor = async (req, res) => {
+    try {
+        if (process.env.BYPASS_PAYMENT !== 'true') {
+            return res.json({ success: false, message: 'Payment bypass is disabled.' })
+        }
+        // Mark user as having paid so the AI session is granted
+        const userId = req.user.id
+        await userModel.findByIdAndUpdate(userId, { paymentDone: true })
+        return res.json({ success: true, message: 'Payment bypassed for testing.' })
+    } catch (error) {
+        console.log(error)
+        res.json({ success: false, message: error.message })
+    }
+}
+
+export {registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, verifyRazorpay, paymentRazorpay, addTest, getAllTestsForUser, addReport, getReports, paymentRazorpayai, verifyRazorpayai, bypassPaymentAIDoctor};

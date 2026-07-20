@@ -19,6 +19,17 @@ import { EyeDiseaseDetector } from './models/eye';
 import { HeartDiseaseDetector } from './models/heart';
 import { DiabeticDiseaseDetector } from './models/diabetes';
 import ReportsPage from './pages/Reports';
+
+import Dashboard from './pages/Admin/Dashboard';
+import AllAppointments from './pages/Admin/AllAppointments';
+import AddDoctor from './pages/Admin/AddDoctor';
+import DoctorsList from './pages/Admin/DoctorsList';
+import AdminLogin from './pages/Admin/AdminLogin';
+import DoctorAppointments from './pages/Doctor/DoctorAppointments';
+import DoctorDashboard from './pages/Doctor/DoctorDashboard';
+import DoctorProfile from './pages/Doctor/DoctorProfile';
+import AdminLayout from './components/AdminLayout';
+
 const App = () => {
   return (
     <div className='mx-4 sm:mx-[10%]'>
@@ -48,6 +59,16 @@ const App = () => {
 
           <Route path='/reports' element={<ReportsPage/>}/>
                 
+          <Route element={<AdminLayout />}>
+            <Route path='/admin-login' element={<AdminLogin />} />
+            <Route path='/admin-dashboard' element={<Dashboard />} />
+            <Route path='/all-appointments' element={<AllAppointments />} />
+            <Route path='/add-doctor' element={<AddDoctor />} />
+            <Route path='/doctor-list' element={<DoctorsList />} />
+            <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
+            <Route path='/doctor-appointments' element={<DoctorAppointments />} />
+            <Route path='/doctor-profile' element={<DoctorProfile />} />
+          </Route>
 
         </Routes>
       <Footer/>

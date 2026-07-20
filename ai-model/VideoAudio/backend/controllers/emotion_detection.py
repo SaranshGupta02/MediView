@@ -1,14 +1,55 @@
 import base64
-import cv2
 import numpy as np
 import os
-from keras.models import load_model
 
-face_classifier = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-classifier = load_model('emotion_detection_Tensor_2_18.keras')
+_cv2_available = False
+_classifier_available = False
+face_classifier = None
+classifier = None
 emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
+def _init_cv2():
+    global _cv2_available, face_classifier
+    if _cv2_available:
+        return True
+    try:
+        import cv2
+        # Verify CascadeClassifier actually exists (guards against stub packages)
+        if not hasattr(cv2, 'CascadeClassifier'):
+            print("[WARN] cv2 is a stub — install opencv-python-headless")
+            return False
+        face_classifier = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
+        _cv2_available = True
+        return True
+    except Exception as e:
+        print(f"[WARN] cv2 init failed: {e}")
+        return False
+
+def _init_classifier():
+    global _classifier_available, classifier
+    if _classifier_available:
+        return True
+    try:
+        from keras.models import load_model
+        model_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'emotion_detection_Tensor_2_18.keras')
+        if not os.path.exists(model_path):
+            print(f"[WARN] emotion model not found at: {model_path}")
+            return False
+        classifier = load_model(model_path)
+        _classifier_available = True
+        return True
+    except Exception as e:
+        print(f"[WARN] Could not load emotion classifier: {e}")
+        return False
+
+
+
 def detect_emotion(image_data):
+    if not _init_cv2() or not _init_classifier():
+        return None
+    import cv2  # safe now — _init_cv2 already verified it works
     labels=[]
     try:
         # Decode base64

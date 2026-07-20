@@ -1,30 +1,70 @@
 import sys
 import os
+
+# ── Load .env FIRST before any other import touches env vars ──────────────
+# Looks for .env in backend/ then walks up: VideoAudio/, ai-model/, project root
+from dotenv import load_dotenv
+_env_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path=_env_path, override=True)
+
+# Suppress TensorFlow oneDNN info messages — must be set before TF is imported
+os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
+os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')   # 0=all, 1=info, 2=warn, 3=error
+
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(BASE_DIR)
 BRain_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'Brain'))
 if BRain_DIR not in sys.path:
     sys.path.append(BRain_DIR)
-from flask import Flask, request, send_from_directory, jsonify,send_file,make_response
+from flask import Flask, request, send_from_directory, jsonify, send_file, make_response
 from flask_socketio import SocketIO
-from keras.models import load_model
 from collections import Counter
-from flask_cors import CORS
 from datetime import datetime
 import numpy as np
+import requests
+
+# Keras / TensorFlow — only available when running under Python ≤3.12
+_keras_available = False
+try:
+    from keras.models import load_model
+    _keras_available = True
+except Exception as _keras_err:
+    print(f"[WARN] Keras/TensorFlow not available: {_keras_err}")
+    print("[WARN] ML prediction endpoints will return 503 until TF is installed.")
+
+# Flask-CORS
+try:
+    from flask_cors import CORS
+except ImportError:
+    print("[WARN] flask_cors not installed — CORS disabled. Run: pip install flask-cors")
+    CORS = None
+
 from controllers.audio_video import upload_audio_controller, upload_image_controller
 from controllers.emotion_detection import detect_emotion
-from models.Predictions import predict_brain_tumor_from_image,predict_kidney_from_data,predict_eye_disease_from_image,predict_heart_from_data,predict_diabetes_from_data
-from app import brain,get_image_date,get_response_from_doctor
+from models.Predictions import (
+    predict_brain_tumor_from_image, predict_kidney_from_data,
+    predict_eye_disease_from_image, predict_heart_from_data, predict_diabetes_from_data
+)
+
+# Brain AI — requires OpenAI key + keras
+try:
+    from app import brain, get_image_date, get_response_from_doctor
+    _brain_available = True
+except Exception as _brain_err:
+    print(f"[WARN] Brain AI module not available: {_brain_err}")
+    _brain_available = False
+
 latest_audio_filename = None
 latest_image_filename = None
-import requests
+
 AUDIO_FOLDER = 'media/audio_uploads'
 IMAGE_FOLDER = 'media/image_uploads'
 os.makedirs(AUDIO_FOLDER, exist_ok=True)
 os.makedirs(IMAGE_FOLDER, exist_ok=True)
-app = Flask(__name__)  
-CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
+
+app = Flask(__name__)
+if CORS:
+    CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 interview_running = False  
@@ -198,7 +238,8 @@ def get_pdf():
         'Authorization': f'Bearer {token}'
     }
     
-        backend_url = 'http://localhost:4000/api/user/addreport'
+        node_backend = os.getenv("NODE_BACKEND_URL", "http://localhost:4000")
+        backend_url = f'{node_backend}/api/user/addreport'
         response = requests.post(backend_url, files=files, data=data,headers=headers)
         backend_status = response.status_code
         print(backend_status)
@@ -338,5 +379,4 @@ def predict_diabetes():
         return jsonify({'error': str(e)}), 500
     
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000)
-    
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)

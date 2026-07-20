@@ -1,4 +1,4 @@
-import { registerUser,loginUser,getProfile,updateProfile,bookAppointment,listAppointment,cancelAppointment,paymentRazorpay,verifyRazorpay,addTest,getAllTestsForUser,addReport,getReports,paymentRazorpayai,verifyRazorpayai} from "../controllers/userController.js";
+import { registerUser,loginUser,getProfile,updateProfile,bookAppointment,listAppointment,cancelAppointment,paymentRazorpay,verifyRazorpay,addTest,getAllTestsForUser,addReport,getReports,paymentRazorpayai,verifyRazorpayai,bypassPaymentAIDoctor} from "../controllers/userController.js";
 import authUser from "../middlewares/authUser.js";
 import express from 'express'
 import upload from "../middlewares/multer.js";
@@ -19,6 +19,9 @@ userRouter.post("/verifyRazorpay", authUser, verifyRazorpay)
 
 userRouter.post("/payment-razorpayai", authUser, paymentRazorpayai)
 userRouter.post("/verifyRazorpayai", authUser, verifyRazorpayai)
+
+// Bypass payment for testing (only works when BYPASS_PAYMENT=true in .env)
+userRouter.post("/bypass-payment-ai", authUser, bypassPaymentAIDoctor)
 
 userRouter.post("/addTest", authUser, addTest)
 userRouter.get("/getTest", authUser, getAllTestsForUser)

@@ -2,28 +2,66 @@ import React from 'react';
 import axios from 'axios';
 import { useContext } from 'react';
 import { AppContext } from '../context/AppContext';
-import { assets } from '../assets/assets';
+
+// Set VITE_BYPASS_PAYMENT=true in frontend/.env to skip payment during testing
+const BYPASS_PAYMENT = import.meta.env.VITE_BYPASS_PAYMENT === 'true';
 
 const AIDoctorSection = () => {
   const { backendUrl, token } = useContext(AppContext);
 
-  const handleRazorpay = async () => {
-    const config = {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      }
-    };
+  const config = {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    }
+  };
 
+  // ── Opens the AI Doctor session directly (after auth cookie is set) ───────
+  const openAISession = async () => {
     try {
-      const { data } = await axios.post(
-        backendUrl + '/api/user/payment-razorpayai',
-        {},
-        config
-      );
+      await fetch("http://localhost:5000/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+        credentials: "include"
+      });
+      window.open("http://localhost:5000/", "_blank");
+    } catch (err) {
+      console.error("Failed to open AI session:", err);
+      alert("Could not connect to the AI Doctor server. Make sure it is running on port 5000.");
+    }
+  };
+
+  // ── Bypass mode: skip payment, directly open session ─────────────────────
+  const handleBypass = async () => {
+    if (!token) {
+      alert("Please login first to access the AI Doctor.");
+      return;
+    }
+    try {
+      const { data } = await axios.post(backendUrl + '/api/user/bypass-payment-ai', {}, config);
+      if (data.success) {
+        await openAISession();
+      } else {
+        alert(data.message || "Bypass failed.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Could not reach the backend. Make sure it is running on port 4000.");
+    }
+  };
+
+  // ── Normal mode: go through Razorpay ─────────────────────────────────────
+  const handleRazorpay = async () => {
+    if (!token) {
+      alert("Please login first to access the AI Doctor.");
+      return;
+    }
+    try {
+      const { data } = await axios.post(backendUrl + '/api/user/payment-razorpayai', {}, config);
 
       if (!data.success) {
-        alert("Failed to create payment");
+        alert(data.message || "Failed to create payment order.");
         return;
       }
 
@@ -37,41 +75,24 @@ const AIDoctorSection = () => {
         handler: async function (response) {
           const verifyRes = await axios.post(
             backendUrl + "/api/user/verifyRazorpayai",
-            {
-              razorpay_order_id: response.razorpay_order_id,
-            },
+            { razorpay_order_id: response.razorpay_order_id },
             config
           );
-
           if (verifyRes.data.success) {
-            await fetch("http://localhost:5000/auth", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({ token }),
-              credentials: "include"
-            });
-            window.open("http://localhost:5000/", "_blank");
+            await openAISession();
           } else {
-            alert("Payment verification failed");
+            alert("Payment verification failed.");
           }
         },
-        prefill: {
-          name: "User",
-          email: "user@example.com",
-          contact: "9999999999",
-        },
-        theme: {
-          color: "#4F46E5",
-        },
+        prefill: { name: "User", email: "user@example.com", contact: "9999999999" },
+        theme: { color: "#4F46E5" },
       };
 
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (err) {
       console.error(err);
-      alert("Something went wrong during payment");
+      alert("Something went wrong during payment.");
     }
   };
 
@@ -90,20 +111,27 @@ const AIDoctorSection = () => {
         {/* Right - Content */}
         <div className="flex-1">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-6 leading-snug">
-            Get Instant AI Medical Help for just <span className="text-indigo-600">₹99</span>
+            Get Instant AI Medical Help{!BYPASS_PAYMENT && <> for just <span className="text-indigo-600">₹99</span></>}
           </h2>
           <ul className="list-disc pl-6 text-gray-700 text-base space-y-3 mb-6">
             <li>Smart, private, and fast medical consultation</li>
             <li>Instant insights based on symptoms</li>
             <li>Available 24/7, no waiting lines</li>
             <li>Secure and confidential data handling</li>
-            <li>Only ₹99 for expert advice — anytime</li>
+            {!BYPASS_PAYMENT && <li>Only ₹99 for expert advice — anytime</li>}
           </ul>
+
+          {BYPASS_PAYMENT && (
+            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 mb-4">
+              🧪 <strong>Test Mode:</strong> Payment is bypassed. Click below to go directly to AI Doctor.
+            </p>
+          )}
+
           <button
-            onClick={handleRazorpay}
+            onClick={BYPASS_PAYMENT ? handleBypass : handleRazorpay}
             className="bg-indigo-600 hover:bg-indigo-700 transition text-white text-lg font-semibold px-6 py-3 rounded-lg shadow"
           >
-            Get AI Doctor Assistance
+            {BYPASS_PAYMENT ? '🧪 Open AI Doctor (Test Mode)' : 'Get AI Doctor Assistance'}
           </button>
         </div>
       </div>
